@@ -62,6 +62,7 @@ Terakhir sesuaikan `.env` — bagian yang wajib dicek ada di bagian berikutnya.
 | `DATACENTER_DB_*` | Koneksi ke Data Center — tanpa ini login tidak jalan |
 | `ABSENSI_DB_*`, `KURIKULUM_DB_*`, `KESISWAAN_DB_*` | Koneksi ke tiga aplikasi lain |
 | `LANDING_URL` | Alamat landing page untuk tombol **Halaman Utama**. Kosongkan untuk menyembunyikan tautannya |
+| `UJIAN_URL` | Alamat aplikasi ujian (CBT), mis. `https://sekolah.sch.id/cbt`. Diberitahukan ke aplikasi ponsel; kosong = menu Ujian disembunyikan |
 | `ABSENSI_URL` | Folder aplikasi Absensi, mis. `http://localhost/presensi` |
 | `ABSENSI_BARCODE_KEY` | Harus sama dengan `BARCODE_API_KEY` di `config.local.php` aplikasi Absensi. **Kosong = menu Absen Barcode dimatikan** |
 | `KURIKULUM_STORAGE_PATH` | Folder `storage/app/public` aplikasi Kurikulum. Bawaannya `../kurikulum/storage/app/public`, cocok bila kedua aplikasi satu folder `www` |
@@ -143,6 +144,48 @@ bukan error 500. Kesalahannya tetap dicatat di log.
 Khusus dashboard, tiap bagian dimuat terpisah — satu aplikasi yang mati tidak
 membuat seluruh dashboard gagal.
 
+## API aplikasi ponsel
+
+Portal melayani aplikasi ponsel siswa lewat `/api`. Isinya cermin dari menu di
+atas — controller, query, dan aturannya sama, hanya keluarannya JSON. Tidak ada
+endpoint pengelolaan di sini, dan tidak boleh ada: guru dan admin tetap memakai
+aplikasi masing-masing.
+
+Autentikasinya token bearer dari `POST /api/v1/auth/login` (NISN + password akun
+Data Center, aturan kunci dan akun nonaktif sama dengan halaman web). Yang
+tersimpan di tabel `siswa_api_token` hanya sidik SHA-256-nya.
+
+| Endpoint | Isi |
+|----------|-----|
+| `GET /api/ping` | Penanda bahwa alamat ini memang Portal Siswa |
+| `GET /api/v1/arahan` | Peta modul yang hidup + alamat aplikasi ujian (`UJIAN_URL`) |
+| `POST /api/v1/auth/login` | Masuk, membalas token |
+| `GET /api/v1/auth/saya`, `POST /api/v1/auth/logout` | Identitas, keluar |
+| `GET /api/v1/dashboard` | Ringkasan layar pertama |
+| `GET /api/v1/absensi` | Rekap bulanan (`?bulan=Y-m`) |
+| `GET\|POST /api/v1/absen` | Keadaan hari ini, lalu absen dengan token pindaian |
+| `GET /api/v1/agenda`, `/materi`, `/tugas`, `/jurnal-pkl`, `/prestasi`, `/pelanggaran` | Daftar per modul |
+| `POST /api/v1/tugas/{tugas}` | Kumpul jawaban (catatan dan/atau file) |
+| `POST /api/v1/jurnal-pkl`, `DELETE /api/v1/jurnal-pkl/{jurnal}` | Isi dan hapus jurnal |
+| `GET /api/v1/jurnal-pkl/cetak` | Lembar jurnal siap cetak (HTML), `?jadwal_id=` opsional |
+| `GET /api/v1/katalog-buku`, `/katalog-buku/{buku}` | Katalog buku digital: pencarian, penyaring, rincian + daftar isi |
+| `GET /api/v1/berkas/...` | Unduh berkas dari storage Kurikulum |
+
+**Satu alamat saja.** `GET /api/v1/arahan` ada supaya operator cukup mengetik IP
+atau domain portal — tanpa subfolder. Aplikasi menanyakan peta modulnya ke akar
+alamat itu, termasuk di mana ujian berada, jadi menambah atau mematikan satu
+menu jadi urusan server dan bukan alasan membangun ulang APK.
+
+**Aturan ujian tidak lewat sini.** Portal hanya memberitahukan alamat aplikasi
+ujian; soal, jawaban, penyematan layar, dan batas pelanggaran tetap sepenuhnya
+milik aplikasi ujian.
+
+**Kunci absensi tetap di server.** Aplikasi ponsel mengirimkan hasil pindaian QR,
+portal yang memanggil `barcode_api.php` memakai `ABSENSI_BARCODE_KEY`. Kunci itu
+tidak pernah ikut terbungkus di dalam APK.
+
+Database aplikasi sekolah yang mati dibalas `503` berisi JSON — bukan halaman
+blade, yang tidak bisa dibaca aplikasi ponsel.
 ## Struktur penting
 
 ```
@@ -194,7 +237,7 @@ public/
 php artisan test
 ```
 
-65 feature test mencakup login dan seluruh menu. Test memakai SQLite in-memory
+92 feature test mencakup login, seluruh menu, dan API aplikasi ponsel. Test memakai SQLite in-memory
 untuk kelima koneksi, jadi **tidak menyentuh database sekolah** sama sekali.
 
 Sebelum menyimpan perubahan PHP:
@@ -207,6 +250,12 @@ vendor/bin/pint
 
 - Semua form memakai token CSRF; login dibatasi 10 percobaan per menit dan absen
   barcode 20 per menit.
+- API aplikasi ponsel memakai token bearer, bukan sesi: `login` dibatasi 20
+  percobaan per menit dan `absen` 20 per menit. Token yang kedaluwarsa, atau yang
+  pemiliknya dinonaktifkan di Data Center, langsung dihapus saat dipakai.
+- Berkas lewat API selalu dikirim sebagai unduhan, tidak pernah ditampilkan
+  langsung — aplikasi yang membuka filenya sendiri tidak menjalankan isinya di
+  dalam portal.
 - Siswa hanya bisa membuka data kelas dan miliknya sendiri; selebihnya ditolak
   403/404.
 - Berkas dari storage Kurikulum: hanya PDF dan gambar yang tampil langsung di

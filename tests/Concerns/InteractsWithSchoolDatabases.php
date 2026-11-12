@@ -253,6 +253,48 @@ trait InteractsWithSchoolDatabases
             $table->timestamps();
         });
 
+        $schema->create('buku_digital', function (Blueprint $table) {
+            $table->id();
+            $table->string('sibi_id')->unique();
+            $table->string('slug')->nullable();
+            $table->string('sumber_feed')->nullable();
+            $table->string('judul');
+            $table->string('penulis')->nullable();
+            $table->string('penerbit')->nullable();
+            $table->string('isbn')->nullable();
+            $table->string('bahasa')->nullable();
+            $table->string('jenjang')->nullable();
+            $table->string('tingkat_kelas')->nullable();
+            $table->string('mata_pelajaran')->nullable();
+            $table->string('kategori')->nullable();
+            $table->string('jenis_buku')->nullable();
+            $table->string('kurikulum')->nullable();
+            $table->string('tipe')->default('pdf');
+            $table->string('edisi')->nullable();
+            $table->string('tahun_terbit')->nullable();
+            $table->text('deskripsi')->nullable();
+            $table->text('url_cover')->nullable();
+            $table->text('url_file')->nullable();
+            $table->string('cover_path')->nullable();
+            $table->string('file_path')->nullable();
+            $table->unsignedBigInteger('ukuran_file')->nullable();
+            $table->timestamp('diunduh_pada')->nullable();
+            $table->timestamp('disinkron_pada')->nullable();
+            $table->timestamps();
+        });
+
+        $schema->create('buku_digital_bab', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('buku_digital_id');
+            $table->unsignedBigInteger('induk_id')->nullable();
+            $table->unsignedTinyInteger('level')->default(1);
+            $table->string('nomor_bab')->nullable();
+            $table->string('judul_bab');
+            $table->unsignedSmallInteger('halaman')->nullable();
+            $table->unsignedSmallInteger('urutan')->default(0);
+            $table->timestamps();
+        });
+
         $schema->create('agenda_mengajar', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('guru_id');
