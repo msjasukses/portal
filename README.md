@@ -54,6 +54,24 @@ php artisan migrate --seed
 
 Terakhir sesuaikan `.env` — bagian yang wajib dicek ada di bagian berikutnya.
 
+Lalu periksa hasilnya:
+
+```bash
+php artisan portal:periksa
+```
+
+Perintah itu menyambungi kelima database, memastikan folder storage aplikasi
+tetangga benar-benar ada, membaca manifes rilis dan logo sekolah, lalu
+mengatakan apa yang belum beres. Kode keluarnya 1 bila ada yang menghentikan
+portal, jadi ia juga bisa dipakai di skrip pemasangan.
+
+Ini bukan kemewahan. Portal sengaja gagal dengan sopan — menu yang databasenya
+mati sekadar hilang, logo yang tidak ada diganti logo bawaan, rilis yang belum
+diunggah sekadar tidak ditawarkan. Akibatnya pemasangan yang setengah jadi
+terlihat persis seperti yang sehat, dan baru ketahuan ketika seorang siswa
+mengeluh. Jalankan perintah ini setiap selesai memasang atau memindahkan
+portal, di laptop maupun di VPS.
+
 ## Konfigurasi `.env`
 
 | Kunci | Keterangan |
@@ -353,7 +371,7 @@ menjatuhkan arahan.
 php artisan test
 ```
 
-105 feature test mencakup login, seluruh menu, dan API aplikasi ponsel. Test memakai SQLite in-memory
+108 feature test mencakup login, seluruh menu, dan API aplikasi ponsel. Test memakai SQLite in-memory
 untuk kelima koneksi, jadi **tidak menyentuh database sekolah** sama sekali.
 
 Sebelum menyimpan perubahan PHP:
