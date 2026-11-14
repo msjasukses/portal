@@ -1,5 +1,33 @@
 <?php
 
+/**
+ * Folder storage/app/public milik aplikasi sekolah di sebelah.
+ *
+ * Nama foldernya berbeda antar pemasangan — ada yang "datacenter", ada yang
+ * "datacenter-msja" — jadi beberapa nama dijajal sebelum menyerah ke yang
+ * pertama. Salah tebak di sini tidak merusak apa pun: berkasnya sekadar tidak
+ * ketemu, dan yang memanggilnya sudah menyiapkan jalan mundur. Yang merusak
+ * adalah memaksa operator menyunting .env untuk sesuatu yang bisa ditemukan
+ * sendiri, lalu diam ketika ia lupa.
+ */
+$storageTetangga = function (string $env, string ...$folder): string {
+    $dari = env($env);
+
+    if (is_string($dari) && trim($dari) !== '') {
+        return $dari;
+    }
+
+    foreach ($folder as $nama) {
+        $jalur = base_path('../'.$nama.'/storage/app/public');
+
+        if (is_dir($jalur)) {
+            return $jalur;
+        }
+    }
+
+    return base_path('../'.$folder[0].'/storage/app/public');
+};
+
 return [
 
     /*
@@ -63,6 +91,18 @@ return [
         'kurikulum' => [
             'driver' => 'local',
             'root' => env('KURIKULUM_STORAGE_PATH', base_path('../kurikulum/storage/app/public')),
+            'visibility' => 'public',
+            'throw' => false,
+            'report' => false,
+        ],
+
+        // Disk "public" milik aplikasi Data Center: logo sekolah yang diunggah
+        // lewat Pengaturan Aplikasi. Portal hanya membacanya. Logo sekolah
+        // punya satu pemilik — Data Center — dan aplikasi lain meminjamnya,
+        // supaya menggantinya cukup sekali di satu tempat.
+        'datacenter' => [
+            'driver' => 'local',
+            'root' => $storageTetangga('DATACENTER_STORAGE_PATH', 'datacenter', 'datacenter-msja'),
             'visibility' => 'public',
             'throw' => false,
             'report' => false,

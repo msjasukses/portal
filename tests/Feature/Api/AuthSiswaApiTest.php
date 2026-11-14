@@ -5,7 +5,9 @@ namespace Tests\Feature\Api;
 use App\Models\Datacenter\Siswa;
 use App\Models\SiswaApiToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 use Tests\Concerns\InteractsWithSchoolDatabases;
 use Tests\TestCase;
 
@@ -306,5 +308,91 @@ class AuthSiswaApiTest extends TestCase
     private function kunciMenu(array $menu): array
     {
         return array_column($menu, 'kunci');
+    }
+
+    // ---- Logo sekolah -------------------------------------------------------
+
+    public function test_arahan_points_at_the_school_logo_the_data_center_holds(): void
+    {
+        Storage::fake('datacenter');
+        $this->logoSekolah('sekolah/logo.jpg');
+
+        $this->getJson(route('api.arahan'))
+            ->assertOk()
+            ->assertJsonPath('logo_url', url('api/v1/logo'));
+    }
+
+    public function test_arahan_says_there_is_no_logo_before_the_school_uploads_one(): void
+    {
+        Storage::fake('datacenter');
+
+        DB::connection('datacenter')->table('sekolah')->insert([
+            'nama_sekolah' => 'SMP Negeri 93',
+            'logo' => null,
+        ]);
+
+        // Null, bukan alamat yang menjawab 404. Sekolah yang belum mengunggah
+        // logo adalah keadaan yang sah, dan aplikasi memakai logo bawaannya.
+        $this->getJson(route('api.arahan'))
+            ->assertOk()
+            ->assertJsonPath('logo_url', null);
+    }
+
+    public function test_the_logo_is_served_without_a_token_because_it_greets_the_login_screen(): void
+    {
+        Storage::fake('datacenter');
+        $this->logoSekolah('sekolah/logo.jpg');
+
+        $balasan = $this->withoutToken()->get(route('api.logo'))->assertOk();
+
+        $this->assertSame('image/jpeg', $balasan->headers->get('Content-Type'));
+        $this->assertSame('logo-sekolah-ini', $balasan->streamedContent());
+    }
+
+    public function test_a_logo_recorded_but_gone_from_disk_is_treated_as_no_logo(): void
+    {
+        // Folder storage kerap tertinggal saat aplikasi dipindah antar server,
+        // sehingga barisnya ada di database tetapi berkasnya tidak. Aplikasi
+        // harus diberi tahu "tidak ada logo", bukan dikirimi alamat yang patah.
+        Storage::fake('datacenter');
+        $this->logoSekolah('sekolah/logo.jpg', berkasAda: false);
+
+        $this->getJson(route('api.arahan'))
+            ->assertOk()
+            ->assertJsonPath('logo_url', null);
+
+        $this->withoutToken()->get(route('api.logo'))->assertNotFound();
+    }
+
+    public function test_a_missing_datacenter_disk_never_breaks_the_discovery_endpoint(): void
+    {
+        // Terjadi ketika berkas config sudah diperbarui di server tetapi
+        // config lamanya masih ter-cache: disk "datacenter" belum dikenal,
+        // dan Storage::disk() atasnya melempar galat. Arahan dipanggil
+        // sebelum siswa masuk, jadi ia harus tetap menjawab.
+        DB::connection('datacenter')->table('sekolah')->insert([
+            'nama_sekolah' => 'SMP Negeri 93',
+            'logo' => 'sekolah/logo.jpg',
+        ]);
+
+        config(['filesystems.disks.datacenter' => null]);
+        Storage::forgetDisk('datacenter');
+
+        $this->getJson(route('api.arahan'))
+            ->assertOk()
+            ->assertJsonPath('logo_url', null);
+    }
+
+    /** Catat logo sekolah di Data Center, berikut berkasnya di disk. */
+    private function logoSekolah(string $jalur, bool $berkasAda = true): void
+    {
+        DB::connection('datacenter')->table('sekolah')->insert([
+            'nama_sekolah' => 'SMP Negeri 93',
+            'logo' => $jalur,
+        ]);
+
+        if ($berkasAda) {
+            Storage::disk('datacenter')->put($jalur, 'logo-sekolah-ini');
+        }
     }
 }

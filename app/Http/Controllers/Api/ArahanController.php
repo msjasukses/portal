@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Support\AbsensiBarcode;
+use App\Support\LogoSekolah;
 use App\Support\RilisAplikasi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -26,6 +27,7 @@ class ArahanController extends Controller
     public function __construct(
         private AbsensiBarcode $barcode,
         private RilisAplikasi $rilis,
+        private LogoSekolah $logo,
     ) {}
 
     public function __invoke(): JsonResponse
@@ -38,6 +40,11 @@ class ArahanController extends Controller
             'versi_api' => 1,
             'sekolah' => $this->namaSekolah(),
             'portal_url' => rtrim(url('/'), '/'),
+
+            // Logo sekolah milik Data Center, disajikan lewat portal. Null
+            // berarti sekolah ini belum mengunggahnya — aplikasi memakai logo
+            // bawaannya, dan itu keadaan yang sah, bukan kegagalan.
+            'logo_url' => $this->logo->ada() ? url('api/v1/logo') : null,
 
             // Alamat aplikasi ujian, lengkap dengan subfoldernya. Aturan
             // ujiannya tetap milik aplikasi ujian; portal hanya menunjukkan

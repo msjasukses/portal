@@ -78,6 +78,15 @@ trait InteractsWithSchoolDatabases
     {
         $schema = Schema::connection('datacenter');
 
+        // Profil sekolah: sumber tunggal nama dan logo sekolah, diisi operator
+        // lewat Pengaturan Aplikasi di Data Center.
+        $schema->create('sekolah', function (Blueprint $table) {
+            $table->id();
+            $table->string('nama_sekolah')->nullable();
+            $table->string('logo')->nullable();
+            $table->timestamps();
+        });
+
         $schema->create('tahun_ajaran', function (Blueprint $table) {
             $table->id();
             $table->string('kode_tahun_ajaran');

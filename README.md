@@ -158,7 +158,8 @@ tersimpan di tabel `siswa_api_token` hanya sidik SHA-256-nya.
 | Endpoint | Isi |
 |----------|-----|
 | `GET /api/ping` | Penanda bahwa alamat ini memang Portal Siswa |
-| `GET /api/v1/arahan` | Peta modul yang hidup + alamat aplikasi ujian (`UJIAN_URL`) + versi APK terbaru |
+| `GET /api/v1/arahan` | Peta modul yang hidup + alamat aplikasi ujian (`UJIAN_URL`) + versi APK terbaru + alamat logo sekolah |
+| `GET /api/v1/logo` | Logo sekolah milik Data Center, tanpa token |
 | `POST /api/v1/auth/login` | Masuk, membalas token |
 | `GET /api/v1/auth/saya`, `POST /api/v1/auth/logout` | Identitas, keluar |
 | `GET /api/v1/dashboard` | Ringkasan layar pertama |
@@ -321,13 +322,38 @@ Langkah pemasangan dan rilisnya ada di `PASANG-PEMBARUAN-DI-VPS.md` pada
 repositori aplikasi ponsel, beserta skrip `rilis.ps1` yang membangun,
 menghitung sidik jari, dan menulis manifesnya sekaligus.
 
+## Logo sekolah
+
+Layar masuk aplikasi ponsel memajang logo sekolah, bukan logo CyberEdu. Logo
+itu tidak disimpan portal: pemiliknya aplikasi **Data Center**, tempat operator
+mengunggahnya sekali lewat Pengaturan Aplikasi → Logo Sekolah. Portal membacanya
+dari tabel `sekolah` di database Data Center dan menyajikan berkasnya lewat
+`GET /api/v1/logo`.
+
+Disajikan lewat portal, bukan ditunjuk ke alamat Data Center, karena Data Center
+tidak selalu terbuka ke luar — dan aplikasi sebaiknya hanya perlu memercayai
+satu alamat. Berkasnya dibaca dari disk `datacenter`, yang mencari sendiri
+folder `../datacenter` atau `../datacenter-msja`; `DATACENTER_STORAGE_PATH`
+memaksanya bila pemasangan Anda menaruhnya di tempat lain.
+
+Memasangnya menuntut `php artisan config:clear` sekali, karena
+`config/filesystems.php` bertambah satu disk. Melewatkannya tidak menjatuhkan
+apa pun — disk yang belum dikenal diperlakukan sama dengan logo yang tidak ada
+— tetapi logonya tidak akan muncul sampai config lamanya dibuang.
+
+Sekolah yang belum mengunggah logo membuat `logo_url` pada arahan bernilai
+`null`, dan aplikasi memakai logo bawaannya. Begitu pula bila barisnya ada di
+database tetapi berkasnya hilang dari disk — keadaan yang lazim setelah
+aplikasi dipindah antar server. Keduanya sah, bukan galat, dan tidak satu pun
+menjatuhkan arahan.
+
 ## Pengujian
 
 ```bash
 php artisan test
 ```
 
-100 feature test mencakup login, seluruh menu, dan API aplikasi ponsel. Test memakai SQLite in-memory
+105 feature test mencakup login, seluruh menu, dan API aplikasi ponsel. Test memakai SQLite in-memory
 untuk kelima koneksi, jadi **tidak menyentuh database sekolah** sama sekali.
 
 Sebelum menyimpan perubahan PHP:

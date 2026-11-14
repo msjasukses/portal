@@ -28,6 +28,11 @@ Route::prefix('v1')->name('api.')->group(function () {
 
     // ---- Tanpa token ----
     Route::get('arahan', Api\ArahanController::class)->name('arahan');
+
+    // Logo sekolah, dipajang di layar masuk — jadi ia justru dibutuhkan
+    // ketika belum ada siswa yang masuk.
+    Route::get('logo', Api\LogoApiController::class)->name('logo');
+
     Route::post('auth/login', [Api\AuthSiswaApiController::class, 'login'])
         ->middleware('throttle:20,1')->name('auth.login');
 
