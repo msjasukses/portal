@@ -295,6 +295,42 @@ trait InteractsWithSchoolDatabases
             $table->timestamps();
         });
 
+        $schema->create('modul_ajar', function (Blueprint $table) {
+            $table->id();
+            $table->string('judul');
+            $table->unsignedBigInteger('mata_pelajaran_id')->nullable();
+            $table->unsignedBigInteger('tingkat_kelas_id')->nullable();
+            $table->unsignedBigInteger('pegawai_id')->nullable();
+            $table->string('fase')->nullable();
+            $table->integer('jumlah_jam')->nullable();
+            $table->integer('pertemuan_ke')->nullable();
+            $table->string('semester')->nullable();
+            $table->text('capaian_pembelajaran')->nullable();
+            $table->text('tujuan_pembelajaran')->nullable();
+            $table->text('alur_tujuan_pembelajaran')->nullable();
+            $table->text('kegiatan_pembelajaran')->nullable();
+            $table->text('target_peserta_didik')->nullable();
+            $table->text('model_pembelajaran')->nullable();
+            $table->text('pertanyaan_pemantik')->nullable();
+            $table->text('pendahuluan')->nullable();
+            $table->text('kegiatan_inti')->nullable();
+            $table->text('penutup')->nullable();
+            $table->text('asesmen_diagnostik')->nullable();
+            $table->text('asesmen_formatif')->nullable();
+            $table->text('asesmen_sumatif')->nullable();
+            $table->text('lkpd_tujuan')->nullable();
+            $table->text('lkpd_petunjuk')->nullable();
+            $table->text('lkpd_kegiatan')->nullable();
+            $table->text('lkpd_refleksi')->nullable();
+            $table->text('lkpd_asesmen')->nullable();
+            $table->string('file')->nullable();
+            $table->string('file_nama')->nullable();
+            $table->unsignedBigInteger('file_ukuran')->nullable();
+            $table->text('deskripsi')->nullable();
+            $table->string('tahun_ajaran')->nullable();
+            $table->timestamps();
+        });
+
         $schema->create('agenda_mengajar', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('guru_id');
@@ -304,6 +340,7 @@ trait InteractsWithSchoolDatabases
             $table->unsignedTinyInteger('jumlah_jam')->default(1);
             $table->unsignedBigInteger('kelas_id');
             $table->unsignedBigInteger('mata_pelajaran_id');
+            $table->unsignedBigInteger('modul_ajar_id')->nullable();
             $table->json('kehadiran_siswa')->nullable();
             $table->text('materi')->nullable();
             $table->text('catatan')->nullable();

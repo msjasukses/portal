@@ -1,0 +1,24 @@
+{
+  "kode_versi": 2,
+  "versi": "1.1.0",
+  "wajib_minimal": 0,
+  "terbit_pada": "2026-11-20",
+  "catatan": "Pembaruan dari dalam aplikasi, katalog buku digital.",
+  "apk": {
+    "arm64-v8a": {
+      "url": "rilis/cbt-siswa-1.1.0-arm64-v8a.apk",
+      "ukuran": 27262976,
+      "sha256": "ganti-dengan-64-huruf-heksadesimal-hasil-sha256sum-berkasnya00000"
+    },
+    "armeabi-v7a": {
+      "url": "rilis/cbt-siswa-1.1.0-armeabi-v7a.apk",
+      "ukuran": 25165824,
+      "sha256": "ganti-dengan-64-huruf-heksadesimal-hasil-sha256sum-berkasnya00000"
+    },
+    "universal": {
+      "url": "rilis/cbt-siswa-1.1.0.apk",
+      "ukuran": 79930262,
+      "sha256": "ganti-dengan-64-huruf-heksadesimal-hasil-sha256sum-berkasnya00000"
+    }
+  }
+}

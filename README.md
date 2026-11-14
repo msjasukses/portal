@@ -158,7 +158,7 @@ tersimpan di tabel `siswa_api_token` hanya sidik SHA-256-nya.
 | Endpoint | Isi |
 |----------|-----|
 | `GET /api/ping` | Penanda bahwa alamat ini memang Portal Siswa |
-| `GET /api/v1/arahan` | Peta modul yang hidup + alamat aplikasi ujian (`UJIAN_URL`) |
+| `GET /api/v1/arahan` | Peta modul yang hidup + alamat aplikasi ujian (`UJIAN_URL`) + versi APK terbaru |
 | `POST /api/v1/auth/login` | Masuk, membalas token |
 | `GET /api/v1/auth/saya`, `POST /api/v1/auth/logout` | Identitas, keluar |
 | `GET /api/v1/dashboard` | Ringkasan layar pertama |
@@ -169,6 +169,7 @@ tersimpan di tabel `siswa_api_token` hanya sidik SHA-256-nya.
 | `POST /api/v1/jurnal-pkl`, `DELETE /api/v1/jurnal-pkl/{jurnal}` | Isi dan hapus jurnal |
 | `GET /api/v1/jurnal-pkl/cetak` | Lembar jurnal siap cetak (HTML), `?jadwal_id=` opsional |
 | `GET /api/v1/katalog-buku`, `/katalog-buku/{buku}` | Katalog buku digital: pencarian, penyaring, rincian + daftar isi |
+| `GET /api/v1/modul-ajar/{modul}` | Modul ajar yang dipilih guru pada agenda; tanpa bagian asesmen |
 | `GET /api/v1/berkas/...` | Unduh berkas dari storage Kurikulum |
 
 **Satu alamat saja.** `GET /api/v1/arahan` ada supaya operator cukup mengetik IP
@@ -231,13 +232,102 @@ public/
 └── js/portal.js, js/siswa-absen.js  pemindai QR di halaman absen
 ```
 
+## Modul ajar pada agenda mengajar
+
+Saat mengisi agenda mengajar di aplikasi Kurikulum, guru boleh memilih satu
+modul ajar untuk jam itu (`agenda_mengajar.modul_ajar_id`). Siswa bisa
+membukanya dari kartu agenda di aplikasi ponsel.
+
+**Yang menentukan hak baca adalah agendanya, bukan modulnya.** Sebuah modul
+boleh dibaca bila ia dipakai pada setidaknya satu agenda di kelas siswa itu,
+dan agenda itu tidak ditolak admin saat divalidasi — aturan yang sama dengan
+daftar agendanya sendiri. Modul di luar itu dijawab **404, bukan 403**: pesan
+"Anda tidak berhak" tetap memberi tahu bahwa modul bernomor itu ada, dan nomor
+bisa dicoba satu per satu.
+
+**Bagian asesmen tidak pernah dikirim.** `asesmen_diagnostik`,
+`asesmen_formatif`, `asesmen_sumatif`, dan `lkpd_asesmen` adalah tempat guru
+menuliskan kisi-kisi, soal, rubrik, dan kerap kunci jawabannya. Membukanya
+kepada siswa sebelum penilaian berlangsung bukan keterbukaan — itu
+membatalkan penilaiannya. Daftar yang boleh dan yang ditahan ada
+bersebelahan di `App\Models\Kurikulum\ModulAjar` (`BAGIAN_SISWA` dan
+`BAGIAN_DITAHAN`), supaya keputusannya terlihat oleh siapa pun yang membaca
+kodenya dan bukan tersembunyi sebagai kolom yang kebetulan tidak ikut disebut.
+
+Yang dikirim: tujuan dan capaian pembelajaran, alur tujuan, pertanyaan
+pemantik, model pembelajaran, target peserta didik, kegiatan pembelajaran
+beserta pendahuluan/inti/penutup, dan LKPD selain bagian asesmennya. Bagian
+yang kosong tidak ikut — modul yang disusun lewat Generator kerap hanya
+mengisi separuhnya.
+
+**Modul unggahan.** Guru yang menyusun modulnya di luar aplikasi mengunggah
+satu berkas, dan bagian-bagiannya kosong. Berkas itulah isinya, dialirkan
+lewat `GET /api/v1/berkas/modul-ajar/{modul}` dengan pemeriksaan hak yang
+sama. Tanpa itu, menu ini akan terasa rusak di sekolah yang gurunya terbiasa
+mengunggah.
+
+## Pembaruan APK aplikasi ponsel
+
+Aplikasi siswa dibagikan sebagai APK, di luar Play Store, jadi tidak ada
+mekanisme pembaruan yang disediakan toko. Portal yang mengambil peran itu:
+`GET /api/v1/arahan` menyisipkan versi APK terbaru, dan aplikasi mengunduh
+lalu menyerahkannya ke pemasang Android tanpa siswa meninggalkan aplikasi.
+
+Catatannya tinggal di `public/rilis/terkini.json`, bersebelahan dengan berkas
+APK-nya sendiri. Sebuah rilis adalah peristiwa mengirim berkas, jadi catatannya
+bepergian bersama berkas itu — mengunggah APK lalu lupa menyunting satu baris
+di `.env` di tempat lain adalah kesalahan yang menunggu terjadi, dan
+kegagalannya diam.
+
+```json
+{
+  "kode_versi": 7,
+  "versi": "1.2.0",
+  "wajib_minimal": 0,
+  "terbit_pada": "2026-11-20",
+  "catatan": "Katalog buku digital.",
+  "apk": {
+    "arm64-v8a": { "url": "rilis/cbt-siswa-1.2.0-arm64-v8a.apk", "ukuran": 27262976, "sha256": "..." },
+    "universal": { "url": "rilis/cbt-siswa-1.2.0.apk", "ukuran": 79930262, "sha256": "..." }
+  }
+}
+```
+
+Beberapa keputusan yang menentukan bentuknya:
+
+- **Alamat `url` boleh relatif,** dan portal melengkapinya dengan alamat
+  peladen yang sedang menjawab. Satu `terkini.json` yang sama karena itu
+  bekerja di jaringan sekolah maupun di VPS tanpa disunting sebaris pun.
+- **APK disajikan Apache sebagai berkas statis,** bukan dialirkan PHP. 26 MB
+  lewat `StreamedResponse` dikali satu kelas yang menekan Perbarui bersamaan
+  adalah cara cepat menghabiskan batas proses hosting bersama — dan Apache
+  mendukung HTTP Range di sana, sehingga unduhan yang terputus bisa
+  dilanjutkan tanpa satu baris kode pun. Aturannya ada di
+  `public/rilis/.htaccess`.
+- **Manifes separuh jadi ditolak di server.** `App\Support\RilisAplikasi`
+  membuang keterangan berkas tanpa `sha256` 64 huruf, tanpa ukuran, atau tanpa
+  alamat. Tombol Perbarui yang menuju ke tempat yang tidak ada dibaca siswa
+  sebagai aplikasi yang rusak, dan itu lebih buruk daripada pembaruan yang
+  tidak pernah ditawarkan.
+- **Kegagalannya selalu berarti "tidak ada pembaruan".** Berkas yang hilang,
+  rusak, atau tidak terbaca tidak boleh menjatuhkan `arahan` — endpoint itu
+  dipanggil sebelum siswa masuk.
+- **`wajib_minimal`** memaksa pembaruan bagi versi di bawahnya: layar penuh
+  tanpa jalan masuk. Nol berarti tidak ada yang dipaksa, dan itu nilai
+  bawaannya — memaksa seluruh sekolah memperbarui pantas diputuskan dengan
+  sadar.
+
+Langkah pemasangan dan rilisnya ada di `PASANG-PEMBARUAN-DI-VPS.md` pada
+repositori aplikasi ponsel, beserta skrip `rilis.ps1` yang membangun,
+menghitung sidik jari, dan menulis manifesnya sekaligus.
+
 ## Pengujian
 
 ```bash
 php artisan test
 ```
 
-92 feature test mencakup login, seluruh menu, dan API aplikasi ponsel. Test memakai SQLite in-memory
+100 feature test mencakup login, seluruh menu, dan API aplikasi ponsel. Test memakai SQLite in-memory
 untuk kelima koneksi, jadi **tidak menyentuh database sekolah** sama sekali.
 
 Sebelum menyimpan perubahan PHP:

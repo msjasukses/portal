@@ -30,6 +30,16 @@ class AgendaResource extends JsonResource
             'catatan' => $this->catatan,
             'status' => $this->status,
             'kehadiran' => $this->kehadiranSiswa((int) $request->user('siswa')->id),
+
+            // Hanya secukupnya untuk dipajang dan diketuk. Rinciannya diambil
+            // dari endpoint tersendiri, sebab satu modul bisa berisi belasan
+            // bagian teks kaya - memuatnya untuk 15 baris agenda berarti
+            // mengirim puluhan kilobita yang hampir seluruhnya tidak dibaca.
+            'modul' => $this->whenLoaded('modulAjar', fn () => $this->modulAjar ? [
+                'id' => $this->modulAjar->id,
+                'judul' => (string) $this->modulAjar->judul,
+                'pertemuan_ke' => $this->modulAjar->pertemuan_ke,
+            ] : null),
         ];
     }
 }

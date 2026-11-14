@@ -62,6 +62,19 @@ class AgendaMengajar extends Model
     }
 
     /**
+     * Modul ajar yang dipilih guru saat mengisi agenda ini; null bila guru
+     * tidak memilih satu pun. Memilih modul tidak wajib di aplikasi
+     * Kurikulum, jadi kolom kosong adalah keadaan yang lazim - bukan data
+     * yang hilang.
+     *
+     * @return BelongsTo<ModulAjar, $this>
+     */
+    public function modulAjar(): BelongsTo
+    {
+        return $this->belongsTo(ModulAjar::class, 'modul_ajar_id');
+    }
+
+    /**
      * Agenda kelas tertentu yang tidak ditolak saat divalidasi admin.
      *
      * @param  Builder<self>  $query

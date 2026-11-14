@@ -7,6 +7,7 @@ use App\Models\Datacenter\Siswa;
 use App\Models\Kurikulum\BukuDigital;
 use App\Models\Kurikulum\JurnalPkl;
 use App\Models\Kurikulum\MateriOnline;
+use App\Models\Kurikulum\ModulAjar;
 use App\Models\Kurikulum\PengumpulanTugas;
 use App\Models\Kurikulum\Tugas;
 use Illuminate\Http\Request;
@@ -71,6 +72,19 @@ class BerkasApiController extends Controller
     public function bukuCover(BukuDigital $buku): StreamedResponse
     {
         return $this->kirim($buku->cover_path);
+    }
+
+    /**
+     * Berkas modul ajar unggahan guru.
+     *
+     * Haknya diperiksa dengan aturan yang sama dengan rinciannya: modul yang
+     * tidak pernah dipakai di agenda kelas siswa ini tidak ada baginya.
+     */
+    public function modulAjar(Request $request, ModulAjar $modul): StreamedResponse
+    {
+        abort_unless($modul->terpakaiDiKelas($request->user('siswa')->semuaRombelId()), 404);
+
+        return $this->kirim($modul->file);
     }
 
     private function pastikanKelasSiswa(Siswa $siswa, mixed $kelasId): void

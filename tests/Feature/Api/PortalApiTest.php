@@ -7,9 +7,11 @@ use App\Models\Datacenter\Rombel;
 use App\Models\Datacenter\Siswa;
 use App\Models\Kesiswaan\Pelanggaran;
 use App\Models\Kesiswaan\Prestasi;
+use App\Models\Kurikulum\AgendaMengajar;
 use App\Models\Kurikulum\BukuDigital;
 use App\Models\Kurikulum\JurnalPkl;
 use App\Models\Kurikulum\MateriOnline;
+use App\Models\Kurikulum\ModulAjar;
 use App\Models\Kurikulum\PengumpulanTugas;
 use App\Models\Kurikulum\Tugas;
 use App\Models\SiswaApiToken;
@@ -415,6 +417,121 @@ class PortalApiTest extends TestCase
      *
      * @param  array<string, mixed>  $baris
      */
+    public function test_agenda_names_the_teaching_module_the_teacher_chose(): void
+    {
+        [$siswa, $rombel] = $this->siswaDiKelas();
+
+        $modul = ModulAjar::factory()->create(['judul' => 'Jaringan Dasar', 'pertemuan_ke' => 3]);
+
+        AgendaMengajar::factory()->create([
+            'kelas_id' => $rombel->id,
+            'modul_ajar_id' => $modul->id,
+            'waktu_pengisian' => now()->subDay(),
+        ]);
+
+        // Memilih modul tidak wajib di aplikasi Kurikulum, jadi agenda tanpa
+        // modul adalah keadaan yang lazim - bukan data yang hilang.
+        AgendaMengajar::factory()->create([
+            'kelas_id' => $rombel->id,
+            'modul_ajar_id' => null,
+            'waktu_pengisian' => now()->subDays(2),
+        ]);
+
+        $balasan = $this->sebagai($siswa)->getJson(route('api.agenda'))->assertOk();
+
+        $balasan->assertJsonPath('data.0.modul.id', $modul->id);
+        $balasan->assertJsonPath('data.0.modul.judul', 'Jaringan Dasar');
+        $balasan->assertJsonPath('data.0.modul.pertemuan_ke', 3);
+        $balasan->assertJsonPath('data.1.modul', null);
+    }
+
+    public function test_a_module_carries_the_lesson_goals_but_never_the_assessments(): void
+    {
+        [$siswa, $rombel] = $this->siswaDiKelas();
+
+        $modul = ModulAjar::factory()->create(['judul' => 'Jaringan Dasar']);
+        AgendaMengajar::factory()->create(['kelas_id' => $rombel->id, 'modul_ajar_id' => $modul->id]);
+
+        $balasan = $this->sebagai($siswa)
+            ->getJson(route('api.modul-ajar', $modul))
+            ->assertOk()
+            ->assertJsonPath('data.judul', 'Jaringan Dasar');
+
+        $kunci = array_column($balasan->json('data.bagian'), 'kunci');
+
+        // Tujuan pembelajaran didahulukan dengan sengaja: itu satu-satunya
+        // bagian yang menjawab pertanyaan yang benar-benar dimiliki siswa.
+        $this->assertSame('tujuan_pembelajaran', $kunci[0]);
+        $this->assertContains('capaian_pembelajaran', $kunci);
+        $this->assertContains('lkpd_petunjuk', $kunci);
+
+        // Bagian kosong tidak ikut dikirim; modul Generator kerap hanya
+        // mengisi separuh bagiannya.
+        $this->assertNotContains('penutup', $kunci);
+
+        foreach (ModulAjar::BAGIAN_DITAHAN as $ditahan) {
+            $this->assertNotContains($ditahan, $kunci);
+        }
+
+        // Dan isinya tidak boleh menyelip lewat jalan lain mana pun: di sinilah
+        // guru menuliskan kisi-kisi, rubrik, dan kerap kunci jawabannya.
+        $balasan->assertDontSee('Kunci: B', escape: false);
+        $balasan->assertDontSee('Rubrik', escape: false);
+        $balasan->assertDontSee('Pretest', escape: false);
+    }
+
+    public function test_a_module_outside_the_students_own_agenda_does_not_exist_for_them(): void
+    {
+        [$siswa, $rombel] = $this->siswaDiKelas();
+
+        $milikKelasLain = ModulAjar::factory()->create();
+        AgendaMengajar::factory()->create([
+            'kelas_id' => Rombel::factory()->create()->id,
+            'modul_ajar_id' => $milikKelasLain->id,
+        ]);
+
+        // Agenda yang ditolak admin tidak pernah tampil di daftar agenda, jadi
+        // modulnya pun tidak boleh bisa dibuka lewat nomornya.
+        $dariAgendaDitolak = ModulAjar::factory()->create();
+        AgendaMengajar::factory()->ditolak()->create([
+            'kelas_id' => $rombel->id,
+            'modul_ajar_id' => $dariAgendaDitolak->id,
+        ]);
+
+        $belumDipakai = ModulAjar::factory()->create();
+
+        // 404, bukan 403: "Anda tidak berhak" tetap memberi tahu bahwa modul
+        // bernomor itu ada, dan nomor bisa dicoba satu per satu.
+        foreach ([$milikKelasLain, $dariAgendaDitolak, $belumDipakai] as $modul) {
+            $this->sebagai($siswa)->getJson(route('api.modul-ajar', $modul))->assertNotFound();
+            $this->sebagai($siswa)->getJson(route('api.berkas.modul-ajar', $modul))->assertNotFound();
+        }
+    }
+
+    public function test_an_uploaded_module_is_served_through_the_portal(): void
+    {
+        Storage::fake('kurikulum');
+        Storage::disk('kurikulum')->put('modul-ajar/modul.pdf', '%PDF-1.4 contoh');
+
+        [$siswa, $rombel] = $this->siswaDiKelas();
+
+        $modul = ModulAjar::factory()->unggahan('modul-ajar/modul.pdf')->create();
+        AgendaMengajar::factory()->create(['kelas_id' => $rombel->id, 'modul_ajar_id' => $modul->id]);
+
+        // Modul unggahan tidak punya bagian terisi sama sekali - berkasnya yang
+        // menjadi isinya, dan tanpa itu menu ini terasa rusak di sekolah yang
+        // gurunya terbiasa mengunggah.
+        $this->sebagai($siswa)->getJson(route('api.modul-ajar', $modul))
+            ->assertOk()
+            ->assertJsonCount(0, 'data.bagian')
+            ->assertJsonPath('data.berkas_nama', 'modul.pdf')
+            ->assertJsonPath('data.berkas_ukuran', '1,5 MB');
+
+        $this->sebagai($siswa)->get(route('api.berkas.modul-ajar', $modul))->assertOk();
+
+        $this->withoutToken()->get(route('api.berkas.modul-ajar', $modul))->assertUnauthorized();
+    }
+
     private function babBuku(array $baris): int
     {
         return DB::connection('kurikulum')->table('buku_digital_bab')->insertGetId($baris);

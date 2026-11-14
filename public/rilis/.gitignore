@@ -1,0 +1,11 @@
+# Berkas APK tidak ikut repositori: puluhan MB per rilis, dan tempatnya di
+# server, bukan di riwayat kode.
+*.apk
+
+# Manifes milik tiap pemasangan — sekolah yang satu bisa tertinggal versi
+# tanpa menyeret yang lain.
+terkini.json
+
+# Sidik jari berkas rilis: berubah setiap rilis dan menunjuk APK yang justru
+# tidak ada di sini. Tempatnya di sebelah APK-nya, di server.
+SHA256SUMS

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Support\AbsensiBarcode;
+use App\Support\RilisAplikasi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -22,7 +23,10 @@ use Illuminate\Support\Facades\Schema;
  */
 class ArahanController extends Controller
 {
-    public function __construct(private AbsensiBarcode $barcode) {}
+    public function __construct(
+        private AbsensiBarcode $barcode,
+        private RilisAplikasi $rilis,
+    ) {}
 
     public function __invoke(): JsonResponse
     {
@@ -41,6 +45,14 @@ class ArahanController extends Controller
             'ujian_url' => $ujian !== '' ? rtrim($ujian, '/') : null,
 
             'menu' => $this->menu(),
+
+            // Versi APK terbaru, bila sekolah ini sudah mengunggahnya. Diletakkan
+            // di sini, bukan di endpoint tersendiri, karena arahan sudah
+            // dipanggil sekali tiap aplikasi dibuka dan tidak menuntut token:
+            // aplikasi yang terlalu tua untuk bisa masuk justru yang paling
+            // perlu diberi tahu, dan pemeriksaan yang menuntut login akan
+            // gagal tepat pada kasus itu.
+            'pembaruan' => $this->rilis->manifes(),
         ]);
     }
 

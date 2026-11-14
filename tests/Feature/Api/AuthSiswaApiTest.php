@@ -5,6 +5,7 @@ namespace Tests\Feature\Api;
 use App\Models\Datacenter\Siswa;
 use App\Models\SiswaApiToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\File;
 use Tests\Concerns\InteractsWithSchoolDatabases;
 use Tests\TestCase;
 
@@ -176,6 +177,132 @@ class AuthSiswaApiTest extends TestCase
      * @param  list<array{kunci: string}>  $menu
      * @return list<string>
      */
+    public function test_arahan_announces_the_latest_apk_release(): void
+    {
+        $this->manifesRilis([
+            'kode_versi' => 7,
+            'versi' => '1.2.0',
+            'wajib_minimal' => 4,
+            'terbit_pada' => '2026-11-20',
+            'catatan' => 'Katalog buku digital.',
+            'apk' => [
+                'arm64-v8a' => [
+                    'url' => 'rilis/cbt-siswa-1.2.0-arm64-v8a.apk',
+                    'ukuran' => 27262976,
+                    'sha256' => str_repeat('a', 64),
+                ],
+            ],
+        ]);
+
+        $balasan = $this->getJson(route('api.arahan'))->assertOk();
+
+        $balasan->assertJsonPath('pembaruan.kode_versi', 7);
+        $balasan->assertJsonPath('pembaruan.versi', '1.2.0');
+        $balasan->assertJsonPath('pembaruan.wajib_minimal', 4);
+
+        // Alamat relatif dilengkapi alamat peladen yang sedang menjawab. Inilah
+        // yang membuat satu terkini.json yang sama dipakai di jaringan sekolah
+        // dan di VPS tanpa disunting sebaris pun.
+        $balasan->assertJsonPath(
+            'pembaruan.apk.arm64-v8a.url',
+            url('rilis/cbt-siswa-1.2.0-arm64-v8a.apk'),
+        );
+    }
+
+    public function test_arahan_says_nothing_about_updates_before_the_first_release(): void
+    {
+        config(['portal.rilis_manifes' => storage_path('framework/testing/belum-ada-rilis.json')]);
+
+        $this->getJson(route('api.arahan'))
+            ->assertOk()
+            ->assertJsonPath('pembaruan', null);
+    }
+
+    public function test_a_broken_release_manifest_never_breaks_the_discovery_endpoint(): void
+    {
+        // Endpoint ini dipanggil sebelum siswa masuk, jadi ia tidak boleh
+        // pernah jatuh — apalagi karena satu tanda kutip yang salah ketik di
+        // berkas rilis yang disunting tangan di server.
+        $this->manifesMentah('{ "kode_versi": 7, "apk": ');
+
+        $this->getJson(route('api.arahan'))
+            ->assertOk()
+            ->assertJsonPath('pembaruan', null);
+
+        // Manifes yang JSON-nya utuh tetapi keterangan berkasnya separuh jadi
+        // juga ditolak: tombol Perbarui yang menuju ke tempat yang tidak ada
+        // dibaca siswa sebagai aplikasi yang rusak, dan itu lebih buruk
+        // daripada pembaruan yang tidak pernah ditawarkan.
+        $this->manifesRilis([
+            'kode_versi' => 7,
+            'apk' => [
+                'arm64-v8a' => [
+                    'url' => 'rilis/cbt-siswa-1.2.0-arm64-v8a.apk',
+                    'ukuran' => 27262976,
+                    'sha256' => 'sidik-jari-yang-terpotong-saat-ditempel',
+                ],
+            ],
+        ]);
+
+        $this->getJson(route('api.arahan'))
+            ->assertOk()
+            ->assertJsonPath('pembaruan', null);
+    }
+
+    public function test_a_release_manifest_saved_with_a_byte_order_mark_still_works(): void
+    {
+        // Notepad dan PowerShell di Windows menambahkan BOM tanpa diminta, dan
+        // json_decode menolak berkas yang dimulai dengan tiga bita itu. Yang
+        // membuatnya pantas diuji adalah bentuk kegagalannya: manifes dianggap
+        // tidak ada, portal berkata "tidak ada pembaruan", dan tidak seorang
+        // siswa pun menerima rilisnya tanpa satu pesan galat di mana pun.
+        $bom = chr(0xEF).chr(0xBB).chr(0xBF);
+
+        $this->manifesMentah($bom.(string) json_encode([
+            'kode_versi' => 7,
+            'versi' => '1.2.0',
+            'apk' => [
+                'universal' => [
+                    'url' => 'rilis/cbt-siswa-1.2.0.apk',
+                    'ukuran' => 79930262,
+                    'sha256' => str_repeat('c', 64),
+                ],
+            ],
+        ]));
+
+        $this->getJson(route('api.arahan'))
+            ->assertOk()
+            ->assertJsonPath('pembaruan.kode_versi', 7);
+    }
+
+    /**
+     * @param  array<string, mixed>  $manifes
+     */
+    private function manifesRilis(array $manifes): void
+    {
+        $this->manifesMentah((string) json_encode($manifes));
+    }
+
+    private function manifesMentah(string $isi): void
+    {
+        File::ensureDirectoryExists(dirname($this->berkasManifesUji()));
+        File::put($this->berkasManifesUji(), $isi);
+
+        config(['portal.rilis_manifes' => $this->berkasManifesUji()]);
+    }
+
+    private function berkasManifesUji(): string
+    {
+        return storage_path('framework/testing/terkini-uji.json');
+    }
+
+    protected function tearDown(): void
+    {
+        File::delete($this->berkasManifesUji());
+
+        parent::tearDown();
+    }
+
     private function kunciMenu(array $menu): array
     {
         return array_column($menu, 'kunci');

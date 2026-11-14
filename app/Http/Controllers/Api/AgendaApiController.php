@@ -28,7 +28,7 @@ class AgendaApiController extends Controller
         $siswa = $request->user('siswa');
         $bulan = $request->filled('bulan') ? CarbonImmutable::createFromFormat('!Y-m', $request->query('bulan')) : null;
 
-        $agenda = AgendaMengajar::with(['guru', 'mataPelajaran'])
+        $agenda = AgendaMengajar::with(['guru', 'mataPelajaran', 'modulAjar'])
             ->untukKelas($siswa->rombelAktif()?->id)
             ->when($bulan, fn ($query) => $query->whereBetween('waktu_pengisian', [$bulan->startOfMonth(), $bulan->endOfMonth()]))
             ->latest('waktu_pengisian')

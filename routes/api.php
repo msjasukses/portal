@@ -45,6 +45,7 @@ Route::prefix('v1')->name('api.')->group(function () {
             ->middleware('throttle:20,1')->name('absen.store');
 
         Route::get('agenda', Api\AgendaApiController::class)->name('agenda');
+        Route::get('modul-ajar/{modul}', Api\ModulAjarApiController::class)->name('modul-ajar');
         Route::get('materi', Api\MateriApiController::class)->name('materi');
         Route::get('prestasi', Api\PrestasiApiController::class)->name('prestasi');
         Route::get('pelanggaran', Api\PelanggaranApiController::class)->name('pelanggaran');
@@ -78,6 +79,7 @@ Route::prefix('v1')->name('api.')->group(function () {
             Route::get('jurnal/{jurnal}', 'jurnal')->name('jurnal');
             Route::get('buku/{buku}', 'buku')->name('buku');
             Route::get('buku-cover/{buku}', 'bukuCover')->name('buku-cover');
+            Route::get('modul-ajar/{modul}', 'modulAjar')->name('modul-ajar');
         });
     });
 });
