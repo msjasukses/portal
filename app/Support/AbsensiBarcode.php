@@ -22,13 +22,28 @@ use Throwable;
  */
 class AbsensiBarcode
 {
+    public function __construct(private PenjajakTetangga $tetangga) {}
+
     /** Token barcode aplikasi Absensi: barcode_token.token = 32 digit heksadesimal. */
     private const POLA_TOKEN = '/^[0-9a-f]{32}$/i';
 
-    /** Menu Absen Barcode hanya hidup bila alamat & kunci aplikasi Absensi terisi. */
+    /**
+     * Menu Absen Barcode hanya hidup bila alamat & kunci aplikasi Absensi ada.
+     *
+     * Alamatnya boleh ditemukan sendiri oleh portal; kuncinya tidak pernah.
+     * Kunci API adalah rahasia bersama antara dua aplikasi, dan rahasia yang
+     * bisa ditebak dari luar bukan rahasia — jadi ia tetap wajib diisi di
+     * `.env`, dan tanpa itu menunya memang tidak pantas hidup.
+     */
     public function aktif(): bool
     {
-        return filled(config('services.absensi.url')) && filled(config('services.absensi.barcode_key'));
+        return filled($this->alamat()) && filled(config('services.absensi.barcode_key'));
+    }
+
+    /** Alamat aplikasi Absensi: dari `.env` bila diisi, atau hasil penjajakan. */
+    public function alamat(): ?string
+    {
+        return $this->tetangga->presensi();
     }
 
     /**
@@ -92,7 +107,7 @@ class AbsensiBarcode
         }
 
         $muatan['kunci'] = (string) config('services.absensi.barcode_key');
-        $alamat = rtrim((string) config('services.absensi.url'), '/').'/barcode_api.php';
+        $alamat = rtrim((string) $this->alamat(), '/').'/barcode_api.php';
 
         try {
             $permintaan = $this->permintaan();

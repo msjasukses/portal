@@ -80,10 +80,39 @@ portal, di laptop maupun di VPS.
 | `DATACENTER_DB_*` | Koneksi ke Data Center — tanpa ini login tidak jalan |
 | `ABSENSI_DB_*`, `KURIKULUM_DB_*`, `KESISWAAN_DB_*` | Koneksi ke tiga aplikasi lain |
 | `LANDING_URL` | Alamat landing page untuk tombol **Halaman Utama**. Kosongkan untuk menyembunyikan tautannya |
-| `UJIAN_URL` | Alamat aplikasi ujian (CBT), mis. `https://sekolah.sch.id/cbt`. Diberitahukan ke aplikasi ponsel; kosong = menu Ujian disembunyikan |
-| `ABSENSI_URL` | Folder aplikasi Absensi, mis. `http://localhost/presensi` |
+| `UJIAN_URL` | **Opsional.** Alamat aplikasi ujian (CBT). Kosong = portal mencarinya sendiri di host yang sama |
+| `ABSENSI_URL` | **Opsional.** Folder aplikasi Absensi. Kosong = portal mencarinya sendiri |
 | `ABSENSI_BARCODE_KEY` | Harus sama dengan `BARCODE_API_KEY` di `config.local.php` aplikasi Absensi. **Kosong = menu Absen Barcode dimatikan** |
 | `KURIKULUM_STORAGE_PATH` | Folder `storage/app/public` aplikasi Kurikulum. Bawaannya `../kurikulum/storage/app/public`, cocok bila kedua aplikasi satu folder `www` |
+
+### Aplikasi tetangga ditemukan sendiri
+
+`UJIAN_URL` dan `ABSENSI_URL` tidak wajib lagi. Bila kosong, portal mengetuk
+beberapa subfolder yang lazim **di host-nya sendiri** — `/cbt`, `/ujian`,
+`/exam`, `/ujian-msja` untuk ujian; `/presensi`, `/absensi`, `/absen` untuk
+absensi — lalu memastikan yang menjawab memang aplikasi yang dicari.
+
+Yang membuktikan bukan nama aplikasinya, karena itu diganti tiap sekolah,
+melainkan rute yang khas: aplikasi ujian menjawab **401** pada `/api/v1/ujian`
+(rutenya ada dan menuntut token) sementara portal sendiri menjawab 404 di
+alamat yang sama; `barcode_api.php` menjawab `kunci_salah` meski dipanggil
+tanpa kunci, dan penolakan itu sendiri sudah membuktikan berkasnya ada.
+
+Hasilnya disimpan enam jam — arahan dipanggil tiap aplikasi ponsel dibuka, dan
+tanpa simpanan 300 siswa pada jam yang sama berarti ribuan ketukan ke aplikasi
+sebelah. Kegagalan ikut disimpan, 15 menit, supaya aplikasi yang baru dipasang
+tidak menunggu lama untuk ditemukan.
+
+Isi `.env`-nya bila aplikasi Anda **tidak** berada di host yang sama — misalnya
+di domain terpisah, atau di port lain seperti pada pemasangan Laragon di
+laptop, karena port yang berbeda berarti host yang berbeda. Alamat yang
+dituliskan operator tidak pernah ditimpa, dan tidak ada ketukan yang dibayar
+untuk membuktikannya.
+
+**`ABSENSI_BARCODE_KEY` tetap wajib.** Alamat boleh ditemukan sendiri; kunci
+tidak pernah. Ia rahasia bersama antara dua aplikasi, dan rahasia yang bisa
+ditebak dari luar bukan rahasia. Tanpa kunci, alamat yang sudah ketemu pun
+tidak membuat menu Absen Barcode hidup.
 
 ## Menjalankan
 
@@ -381,7 +410,7 @@ menjatuhkan arahan.
 php artisan test
 ```
 
-110 feature test mencakup login, seluruh menu, dan API aplikasi ponsel. Test memakai SQLite in-memory
+116 feature test mencakup login, seluruh menu, dan API aplikasi ponsel. Test memakai SQLite in-memory
 untuk kelima koneksi, jadi **tidak menyentuh database sekolah** sama sekali.
 
 Sebelum menyimpan perubahan PHP:

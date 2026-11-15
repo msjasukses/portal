@@ -2,7 +2,9 @@
 
 namespace App\Console\Commands;
 
+use App\Support\AbsensiBarcode;
 use App\Support\LogoSekolah;
+use App\Support\PenjajakTetangga;
 use App\Support\RilisAplikasi;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -34,8 +36,19 @@ class PeriksaPemasangan extends Command
     /** @var list<array{taraf: string, judul: string, pesan: string}> */
     private array $hasil = [];
 
-    public function handle(RilisAplikasi $rilis, LogoSekolah $logo): int
-    {
+    private PenjajakTetangga $tetangga;
+
+    private AbsensiBarcode $barcode;
+
+    public function handle(
+        RilisAplikasi $rilis,
+        LogoSekolah $logo,
+        PenjajakTetangga $tetangga,
+        AbsensiBarcode $barcode,
+    ): int {
+        $this->tetangga = $tetangga;
+        $this->barcode = $barcode;
+
         $this->newLine();
         $this->line('  <options=bold>Pemeriksaan pemasangan portal</>');
         $this->line('  '.str_repeat('-', 64));
@@ -166,11 +179,45 @@ class PeriksaPemasangan extends Command
 
     private function periksaUjian(): void
     {
-        $ujian = trim((string) config('portal.ujian_url'));
+        $this->periksaTetangga(
+            'Aplikasi ujian',
+            fn () => $this->tetangga->ujian(),
+            filled(config('portal.ujian_url')),
+            'menu Ujian/CBT disembunyikan; isi UJIAN_URL bila aplikasinya di domain lain',
+        );
 
-        $ujian !== ''
-            ? $this->baik('Alamat aplikasi ujian', $ujian)
-            : $this->catatan('Alamat aplikasi ujian', 'UJIAN_URL kosong; menu Ujian/CBT disembunyikan');
+        $this->periksaTetangga(
+            'Aplikasi presensi',
+            fn () => $this->barcode->alamat(),
+            filled(config('services.absensi.url')),
+            'menu Absen Barcode disembunyikan; isi ABSENSI_URL bila aplikasinya di domain lain',
+        );
+
+        // Alamatnya boleh ditemukan sendiri, kuncinya tidak pernah: ia rahasia
+        // bersama antara dua aplikasi. Tanpa kunci, alamat yang sudah ketemu
+        // pun tidak membuat menunya hidup - dan itu pantas dikatakan terpisah.
+        filled(config('services.absensi.barcode_key'))
+            ? $this->baik('Kunci API presensi', 'terisi')
+            : $this->catatan('Kunci API presensi', 'ABSENSI_BARCODE_KEY kosong; menu Absen Barcode tetap mati');
+    }
+
+    /**
+     * @param  callable(): ?string  $cari
+     */
+    private function periksaTetangga(string $judul, callable $cari, bool $dariEnv, string $bilaNihil): void
+    {
+        $alamat = rescue($cari, null, report: false);
+
+        if ($alamat === null) {
+            $this->catatan($judul, 'tidak ketemu; '.$bilaNihil);
+
+            return;
+        }
+
+        // Dari mana alamatnya datang ikut dicetak. Operator yang melihat
+        // alamat yang salah perlu tahu harus menyuntingnya di .env atau
+        // membiarkan penjajakan mencarinya ulang.
+        $this->baik($judul, $alamat.($dariEnv ? '  (dari .env)' : '  (ditemukan sendiri)'));
     }
 
     // -- Alat ----------------------------------------------------------------

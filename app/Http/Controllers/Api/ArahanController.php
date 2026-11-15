@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Support\AbsensiBarcode;
 use App\Support\LogoSekolah;
+use App\Support\PenjajakTetangga;
 use App\Support\RilisAplikasi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -28,11 +29,16 @@ class ArahanController extends Controller
         private AbsensiBarcode $barcode,
         private RilisAplikasi $rilis,
         private LogoSekolah $logo,
+        private PenjajakTetangga $tetangga,
     ) {}
 
     public function __invoke(): JsonResponse
     {
-        $ujian = trim((string) config('portal.ujian_url'));
+        // Dari UJIAN_URL bila diisi; kalau tidak, dicari sendiri di host yang
+        // sama. Operator cukup mengetik satu alamat - alamat portal - dan
+        // sisanya ditemukan, termasuk oleh sekolah yang tidak pernah tahu ada
+        // berkas .env.
+        $ujian = (string) $this->tetangga->ujian();
 
         return response()->json([
             'ok' => true,
