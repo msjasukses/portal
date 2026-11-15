@@ -36,6 +36,25 @@ Route::prefix('v1')->name('api.')->group(function () {
     Route::post('auth/login', [Api\AuthSiswaApiController::class, 'login'])
         ->middleware('throttle:20,1')->name('auth.login');
 
+    // Aplikasi versi lama menanyakan daftar ujian langsung ke alamat yang
+    // diketik operator, dan versi itu tidak memeriksa nama aplikasi pada
+    // /api/ping - portal dan server ujian sama-sama diterimanya. Alamat
+    // portal yang terketik di sana karena itu lolos sampai layar masuk,
+    // lalu mati di daftar ujian dengan 404 bawaan Laravel yang hanya
+    // berbunyi "route not found". Di layar siswa itu muncul sebagai
+    // kegagalan tanpa sebab, dan tidak ada operator yang bisa menduga
+    // bahwa yang salah cuma satu alamat.
+    //
+    // Jawaban yang menyebutkan sebabnya tidak memperbaiki apa pun di sisi
+    // portal - rutenya memang tidak ada di sini, dan statusnya tetap 404 -
+    // tetapi ia satu-satunya jalan bagi portal untuk berbicara kepada
+    // aplikasi yang tidak pernah bertanya apa-apa kepadanya.
+    Route::any('ujian/{sisa?}', fn () => response()->json([
+        'ok' => false,
+        'pesan' => 'Alamat ini portal sekolah, bukan server ujian. Buka pengaturan '
+            .'alamat di aplikasi, lalu masukkan alamat aplikasi ujian sekolah Anda.',
+    ], 404))->where('sisa', '.*')->name('ujian.salah-alamat');
+
     // ---- Butuh token siswa ----
     Route::middleware('siswa.api')->group(function () {
 
