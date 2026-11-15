@@ -115,14 +115,36 @@ class ArahanController extends Controller
             : [];
     }
 
+    /**
+     * Nama sekolah yang dipajang aplikasi di kepala beranda.
+     *
+     * Data Center lebih dulu, karena di sanalah operator mengisi profil
+     * sekolah — dan dari sana pula logo yang dipajang aplikasi diambil. Satu
+     * identitas sebaiknya punya satu sumber: nama dari satu aplikasi dan logo
+     * dari aplikasi lain berarti sekolah yang berganti nama tampil setengah
+     * berganti, dan tidak seorang pun tahu harus menyuntingnya di mana.
+     *
+     * Kurikulum tetap jadi cadangan. Ada pemasangan yang profil Data
+     * Center-nya belum diisi sementara identitas di Kurikulum sudah benar,
+     * dan mereka tidak boleh mendadak kehilangan namanya hanya karena
+     * urutannya berubah.
+     */
     private function namaSekolah(): string
     {
+        $dariDatacenter = rescue(
+            fn () => DB::connection('datacenter')->table('sekolah')->value('nama_sekolah'),
+            null,
+            report: false,
+        );
+
         $dariKurikulum = rescue(
             fn () => DB::connection('kurikulum')->table('identitas_sekolah')->value('nama_sekolah'),
             null,
             report: false,
         );
 
-        return (string) ($dariKurikulum ?: setting('site_name', config('app.name')));
+        return (string) (
+            $dariDatacenter ?: $dariKurikulum ?: setting('site_name', config('app.name'))
+        );
     }
 }

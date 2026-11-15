@@ -383,6 +383,40 @@ class AuthSiswaApiTest extends TestCase
             ->assertJsonPath('logo_url', null);
     }
 
+    // ---- Nama sekolah -------------------------------------------------------
+
+    public function test_the_school_name_comes_from_the_data_center_profile(): void
+    {
+        // Satu identitas, satu sumber. Logo sudah diambil dari Data Center;
+        // namanya mengikuti ke sana, supaya sekolah yang berganti nama tidak
+        // tampil setengah berganti.
+        DB::connection('datacenter')->table('sekolah')->insert([
+            'nama_sekolah' => 'SMP Negeri 93 Jakarta',
+        ]);
+
+        DB::connection('kurikulum')->table('identitas_sekolah')->insert([
+            'nama_sekolah' => 'SMA Contoh',
+        ]);
+
+        $this->getJson(route('api.arahan'))
+            ->assertOk()
+            ->assertJsonPath('sekolah', 'SMP Negeri 93 Jakarta');
+    }
+
+    public function test_the_school_name_falls_back_to_kurikulum_when_the_data_center_has_none(): void
+    {
+        // Ada pemasangan yang profil Data Center-nya belum diisi sementara
+        // identitas di Kurikulum sudah benar. Mereka tidak boleh mendadak
+        // kehilangan namanya hanya karena urutan sumbernya berubah.
+        DB::connection('kurikulum')->table('identitas_sekolah')->insert([
+            'nama_sekolah' => 'SMKN 56 Jakarta',
+        ]);
+
+        $this->getJson(route('api.arahan'))
+            ->assertOk()
+            ->assertJsonPath('sekolah', 'SMKN 56 Jakarta');
+    }
+
     /** Catat logo sekolah di Data Center, berikut berkasnya di disk. */
     private function logoSekolah(string $jalur, bool $berkasAda = true): void
     {

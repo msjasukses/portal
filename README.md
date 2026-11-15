@@ -340,13 +340,23 @@ Langkah pemasangan dan rilisnya ada di `PASANG-PEMBARUAN-DI-VPS.md` pada
 repositori aplikasi ponsel, beserta skrip `rilis.ps1` yang membangun,
 menghitung sidik jari, dan menulis manifesnya sekaligus.
 
-## Logo sekolah
+## Identitas sekolah: nama dan logo
 
-Layar masuk aplikasi ponsel memajang logo sekolah, bukan logo CyberEdu. Logo
-itu tidak disimpan portal: pemiliknya aplikasi **Data Center**, tempat operator
-mengunggahnya sekali lewat Pengaturan Aplikasi → Logo Sekolah. Portal membacanya
-dari tabel `sekolah` di database Data Center dan menyajikan berkasnya lewat
-`GET /api/v1/logo`.
+Keduanya berasal dari satu tempat, yaitu tabel `sekolah` di database aplikasi
+**Data Center** — yang diisi operator lewat Pengaturan Aplikasi. Nama sekolah
+masuk ke `sekolah` pada `GET /api/v1/arahan` dan dipajang di kepala beranda;
+logonya disajikan lewat `GET /api/v1/logo` dan dipajang di layar masuk.
+
+Satu identitas, satu sumber. Sebelumnya namanya dibaca dari
+`identitas_sekolah` di database Kurikulum sementara logonya dari Data Center,
+dan akibatnya sekolah yang sudah mengisi profilnya dengan benar di Data Center
+tetap tampil dengan nama contoh di aplikasi — tanpa seorang pun tahu harus
+menyuntingnya di mana. Kurikulum tetap dipakai sebagai cadangan bila profil
+Data Center belum diisi, lalu `site_name` milik portal sebagai cadangan
+terakhir, sehingga pemasangan lama tidak kehilangan namanya.
+
+Logo tidak disimpan portal: portal membacanya dari Data Center dan menyajikan
+berkasnya sendiri.
 
 Disajikan lewat portal, bukan ditunjuk ke alamat Data Center, karena Data Center
 tidak selalu terbuka ke luar — dan aplikasi sebaiknya hanya perlu memercayai
@@ -371,7 +381,7 @@ menjatuhkan arahan.
 php artisan test
 ```
 
-108 feature test mencakup login, seluruh menu, dan API aplikasi ponsel. Test memakai SQLite in-memory
+110 feature test mencakup login, seluruh menu, dan API aplikasi ponsel. Test memakai SQLite in-memory
 untuk kelima koneksi, jadi **tidak menyentuh database sekolah** sama sekali.
 
 Sebelum menyimpan perubahan PHP:
