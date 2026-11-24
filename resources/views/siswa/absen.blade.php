@@ -6,7 +6,7 @@
 @if (! $aktif)
   <div class="alert alert--warning">
     <x-icon name="alert" size="16" />
-    <span><strong>Absen barcode belum aktif.</strong> Admin sekolah perlu mengisi alamat dan kunci aplikasi Absensi di pengaturan portal.</span>
+    <span><strong>Absen barcode belum aktif.</strong> Admin sekolah perlu mengisi kunci API aplikasi Absensi di pengaturan portal.</span>
   </div>
 @elseif ($pindaiSalah)
   <div class="alert alert--error">

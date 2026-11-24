@@ -80,8 +80,9 @@ class ArahanController extends Controller
             ['kunci' => 'dashboard', 'label' => 'Ringkasan', 'ikon' => 'grid', 'jalur' => '/api/v1/dashboard'],
         ];
 
-        // Absen barcode ikut mati bila alamat atau kunci aplikasi Absensi belum
-        // diisi — aturan yang sama dengan menu Absen Barcode di peramban.
+        // Absen barcode ikut mati hanya bila kunci aplikasi Absensi belum diisi
+        // — aturan yang sama dengan menu Absen Barcode di peramban. Alamat yang
+        // belum ketemu tidak menghilangkan menunya.
         if ($this->barcode->aktif()) {
             $menu[] = ['kunci' => 'absen', 'label' => 'Absen Barcode', 'ikon' => 'key', 'jalur' => '/api/v1/absen'];
         }

@@ -28,16 +28,22 @@ class AbsensiBarcode
     private const POLA_TOKEN = '/^[0-9a-f]{32}$/i';
 
     /**
-     * Menu Absen Barcode hanya hidup bila alamat & kunci aplikasi Absensi ada.
+     * Menu Absen Barcode hidup selama kunci aplikasi Absensi terisi.
      *
-     * Alamatnya boleh ditemukan sendiri oleh portal; kuncinya tidak pernah.
-     * Kunci API adalah rahasia bersama antara dua aplikasi, dan rahasia yang
-     * bisa ditebak dari luar bukan rahasia — jadi ia tetap wajib diisi di
-     * `.env`, dan tanpa itu menunya memang tidak pantas hidup.
+     * Alamatnya sengaja tidak ikut menentukan. `ABSENSI_URL` boleh kosong —
+     * portal mencarinya sendiri — dan pencarian itu bisa meleset: aplikasi
+     * Absensi di domain lain, di porta lain, atau sekadar sedang tidak
+     * menjawab saat dijajaki. Mematikan menunya karena itu berarti siswa
+     * kehilangan satu-satunya cara absen padahal aplikasinya ada. Lebih baik
+     * menunya tetap ada dan kegagalannya dikatakan saat memindai, lengkap
+     * dengan sebabnya, daripada menu yang diam-diam menghilang.
+     *
+     * Kuncinya tetap wajib: ia rahasia bersama antara dua aplikasi, tidak
+     * pernah bisa ditebak portal, dan tanpa itu setiap pindaian pasti ditolak.
      */
     public function aktif(): bool
     {
-        return filled($this->alamat()) && filled(config('services.absensi.barcode_key'));
+        return filled(config('services.absensi.barcode_key'));
     }
 
     /** Alamat aplikasi Absensi: dari `.env` bila diisi, atau hasil penjajakan. */
@@ -106,8 +112,17 @@ class AbsensiBarcode
             return $this->gagal('belum_disetel', 'Absen barcode belum disetel di portal. Hubungi admin sekolah.');
         }
 
+        // Alamat baru dicari di sini, bukan saat menu digambar: penjajakan yang
+        // meleset tidak boleh menghilangkan menunya, hanya menggagalkan pindaian
+        // ini — dan siswa pantas tahu bedanya dari kegagalan jaringan biasa.
+        $pangkal = $this->alamat();
+
+        if (blank($pangkal)) {
+            return $this->gagal('alamat_nihil', 'Alamat aplikasi Absensi belum ditemukan. Minta admin sekolah mengisi ABSENSI_URL di pengaturan portal.');
+        }
+
         $muatan['kunci'] = (string) config('services.absensi.barcode_key');
-        $alamat = rtrim((string) $this->alamat(), '/').'/barcode_api.php';
+        $alamat = rtrim($pangkal, '/').'/barcode_api.php';
 
         try {
             $permintaan = $this->permintaan();

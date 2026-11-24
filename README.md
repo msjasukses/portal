@@ -81,7 +81,7 @@ portal, di laptop maupun di VPS.
 | `ABSENSI_DB_*`, `KURIKULUM_DB_*`, `KESISWAAN_DB_*` | Koneksi ke tiga aplikasi lain |
 | `LANDING_URL` | Alamat landing page untuk tombol **Halaman Utama**. Kosongkan untuk menyembunyikan tautannya |
 | `UJIAN_URL` | **Opsional.** Alamat aplikasi ujian (CBT). Kosong = portal mencarinya sendiri di host yang sama |
-| `ABSENSI_URL` | **Opsional.** Folder aplikasi Absensi. Kosong = portal mencarinya sendiri |
+| `ABSENSI_URL` | **Opsional.** Folder aplikasi Absensi. Kosong = portal mencarinya sendiri; menu Absen Barcode tetap tampil walau pencariannya meleset |
 | `ABSENSI_BARCODE_KEY` | Harus sama dengan `BARCODE_API_KEY` di `config.local.php` aplikasi Absensi. **Kosong = menu Absen Barcode dimatikan** |
 | `KURIKULUM_STORAGE_PATH` | Folder `storage/app/public` aplikasi Kurikulum. Bawaannya `../kurikulum/storage/app/public`, cocok bila kedua aplikasi satu folder `www` |
 
@@ -111,8 +111,13 @@ untuk membuktikannya.
 
 **`ABSENSI_BARCODE_KEY` tetap wajib.** Alamat boleh ditemukan sendiri; kunci
 tidak pernah. Ia rahasia bersama antara dua aplikasi, dan rahasia yang bisa
-ditebak dari luar bukan rahasia. Tanpa kunci, alamat yang sudah ketemu pun
-tidak membuat menu Absen Barcode hidup.
+ditebak dari luar bukan rahasia. Kunci inilah satu-satunya yang menentukan
+hidup atau matinya menu Absen Barcode.
+
+**Alamat yang tidak ketemu tidak mematikan menunya.** `ABSENSI_URL` kosong dan
+penjajakan meleset hanya berarti pindaian gagal dengan pesan yang menyebut
+sebabnya — menunya tetap ada. Menu yang diam-diam menghilang justru membuat
+siswa mengira portalnya rusak, padahal yang kurang cuma satu baris di `.env`.
 
 ## Menjalankan
 

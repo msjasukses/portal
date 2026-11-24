@@ -190,15 +190,15 @@ class PeriksaPemasangan extends Command
             'Aplikasi presensi',
             fn () => $this->barcode->alamat(),
             filled(config('services.absensi.url')),
-            'menu Absen Barcode disembunyikan; isi ABSENSI_URL bila aplikasinya di domain lain',
+            'menu Absen Barcode tetap tampil tetapi pindaian akan gagal; isi ABSENSI_URL bila aplikasinya di domain lain',
         );
 
         // Alamatnya boleh ditemukan sendiri, kuncinya tidak pernah: ia rahasia
-        // bersama antara dua aplikasi. Tanpa kunci, alamat yang sudah ketemu
-        // pun tidak membuat menunya hidup - dan itu pantas dikatakan terpisah.
+        // bersama antara dua aplikasi. Hanya kunci yang menentukan hidup atau
+        // matinya menu - dan itu pantas dikatakan terpisah dari alamat.
         filled(config('services.absensi.barcode_key'))
             ? $this->baik('Kunci API presensi', 'terisi')
-            : $this->catatan('Kunci API presensi', 'ABSENSI_BARCODE_KEY kosong; menu Absen Barcode tetap mati');
+            : $this->catatan('Kunci API presensi', 'ABSENSI_BARCODE_KEY kosong; menu Absen Barcode mati');
     }
 
     /**

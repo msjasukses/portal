@@ -207,6 +207,26 @@ class AbsenBarcodeControllerTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_menu_stays_on_when_the_absensi_address_is_not_configured(): void
+    {
+        // ABSENSI_URL kosong dan penjajakan tidak menemukan aplikasi Absensi di
+        // host portal: menunya tetap hidup, kegagalannya baru dikatakan saat
+        // memindai — bukan menu yang diam-diam menghilang.
+        config(['services.absensi.url' => '']);
+        [$siswa] = $this->siswaDiKelas();
+        Http::fake(['*' => Http::response([], 404)]);
+
+        $this->actingAs($siswa, 'siswa')
+            ->get(route('siswa.absen'))
+            ->assertOk()
+            ->assertViewHas('aktif', true)
+            ->assertDontSee('Absen barcode belum aktif.');
+
+        $this->actingAs($siswa, 'siswa')
+            ->post(route('siswa.absen.store'), ['token' => self::TOKEN])
+            ->assertSessionHas('error', 'Alamat aplikasi Absensi belum ditemukan. Minta admin sekolah mengisi ABSENSI_URL di pengaturan portal.');
+    }
+
     public function test_guest_scanning_the_barcode_is_sent_to_login_and_back(): void
     {
         $siswa = Siswa::factory()->create();
