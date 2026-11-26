@@ -13,7 +13,13 @@
 |
 | Autentikasi memakai token bearer yang diterbitkan POST /api/v1/auth/login,
 | dijaga middleware "siswa.api". Akun siswanya tetap milik Data Center —
-| portal tidak pernah membuat atau mengubah akun.
+| portal tidak pernah membuat atau menghapus akun, dan tidak pernah menyentuh
+| akun siapa pun selain pemegang token.
+|
+| Satu pengecualian, sengaja dibuat sesempit mungkin: POST /api/v1/auth/sandi
+| menulis kolom password milik siswa yang sedang masuk, setelah sandi lamanya
+| dibuktikan. Tanpa itu siswa tidak punya cara mengganti sandinya sendiri dari
+| ponsel, dan satu-satunya jalan adalah meminta operator mengetikkannya.
 */
 
 use App\Http\Controllers\Api;
@@ -60,6 +66,12 @@ Route::prefix('v1')->name('api.')->group(function () {
 
         Route::get('auth/saya', [Api\AuthSiswaApiController::class, 'saya'])->name('auth.saya');
         Route::post('auth/logout', [Api\AuthSiswaApiController::class, 'logout'])->name('auth.logout');
+
+        // Ganti kata sandi akun Data Center milik siswa sendiri. Dibatasi
+        // supaya menebak sandi lama lewat endpoint ini tidak lebih murah
+        // daripada menebaknya di halaman masuk.
+        Route::post('auth/sandi', [Api\AuthSiswaApiController::class, 'gantiSandi'])
+            ->middleware('throttle:10,1')->name('auth.sandi');
 
         Route::get('dashboard', Api\DashboardApiController::class)->name('dashboard');
 

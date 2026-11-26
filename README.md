@@ -214,6 +214,7 @@ tersimpan di tabel `siswa_api_token` hanya sidik SHA-256-nya.
 | `GET /api/v1/logo` | Logo sekolah milik Data Center, tanpa token |
 | `POST /api/v1/auth/login` | Masuk, membalas token |
 | `GET /api/v1/auth/saya`, `POST /api/v1/auth/logout` | Identitas, keluar |
+| `POST /api/v1/auth/sandi` | Ganti kata sandi sendiri, setelah sandi lama dibuktikan. **Satu-satunya tempat portal menulis ke akun Data Center** — hanya kolom password, hanya milik pemegang token. Token perangkat lain ikut dihapus; token perangkat ini tetap berlaku |
 | `GET /api/v1/dashboard` | Ringkasan layar pertama |
 | `GET /api/v1/absensi` | Rekap bulanan (`?bulan=Y-m`) |
 | `GET\|POST /api/v1/absen` | Keadaan hari ini, lalu absen dengan token pindaian |

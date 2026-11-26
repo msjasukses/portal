@@ -7,6 +7,7 @@ use App\Models\SiswaApiToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Tests\Concerns\InteractsWithSchoolDatabases;
 use Tests\TestCase;
@@ -155,6 +156,86 @@ class AuthSiswaApiTest extends TestCase
         $this->withToken($ponsel)->postJson(route('api.auth.logout'))->assertOk();
 
         $this->assertSame('Tablet', SiswaApiToken::sole()->perangkat);
+    }
+
+    public function test_changing_the_password_needs_the_current_one(): void
+    {
+        $siswa = Siswa::factory()->create();
+        $mentah = $this->tokenUntuk($siswa);
+
+        $this->withToken($mentah)
+            ->postJson(route('api.auth.sandi'), [
+                'sandi_lama' => 'bukan-sandinya',
+                'sandi_baru' => 'sandi-baru-123',
+                'sandi_baru_confirmation' => 'sandi-baru-123',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.sandi_lama.0', 'Kata sandi saat ini salah.');
+
+        // Yang paling mahal bila salah: sandinya terlanjur berganti walau
+        // pembuktiannya gagal, dan siswa terkunci dari seluruh aplikasi
+        // sekolah tanpa tahu sebabnya.
+        $this->assertTrue(Hash::check('password', $siswa->fresh()->password));
+    }
+
+    public function test_changing_the_password_signs_out_other_devices_only(): void
+    {
+        $siswa = Siswa::factory()->create();
+        $ponsel = $this->tokenUntuk($siswa, ['perangkat' => 'Ponsel']);
+        $this->tokenUntuk($siswa, ['perangkat' => 'Tablet']);
+
+        $this->withToken($ponsel)
+            ->postJson(route('api.auth.sandi'), [
+                'sandi_lama' => 'password',
+                'sandi_baru' => 'sandi-baru-123',
+                'sandi_baru_confirmation' => 'sandi-baru-123',
+            ])
+            ->assertOk();
+
+        $this->assertTrue(Hash::check('sandi-baru-123', $siswa->fresh()->password));
+
+        // Tablet yang mungkin dipegang orang lain ikut keluar; ponsel yang
+        // baru saja membuktikan sandi lamanya tetap masuk.
+        $this->assertSame('Ponsel', SiswaApiToken::sole()->perangkat);
+        $this->withToken($ponsel)->getJson(route('api.auth.saya'))->assertOk();
+    }
+
+    public function test_the_new_password_must_differ_and_be_long_enough(): void
+    {
+        $siswa = Siswa::factory()->create();
+        $mentah = $this->tokenUntuk($siswa);
+
+        $this->withToken($mentah)
+            ->postJson(route('api.auth.sandi'), [
+                'sandi_lama' => 'password',
+                'sandi_baru' => 'password',
+                'sandi_baru_confirmation' => 'password',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath(
+                'errors.sandi_baru.0',
+                'Kata sandi baru harus berbeda dari yang sekarang.'
+            );
+
+        $this->withToken($mentah)
+            ->postJson(route('api.auth.sandi'), [
+                'sandi_lama' => 'password',
+                'sandi_baru' => 'pen',
+                'sandi_baru_confirmation' => 'pen',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('sandi_baru');
+
+        $this->assertTrue(Hash::check('password', $siswa->fresh()->password));
+    }
+
+    public function test_changing_the_password_is_refused_without_a_token(): void
+    {
+        $this->postJson(route('api.auth.sandi'), [
+            'sandi_lama' => 'password',
+            'sandi_baru' => 'sandi-baru-123',
+            'sandi_baru_confirmation' => 'sandi-baru-123',
+        ])->assertUnauthorized();
     }
 
     /**

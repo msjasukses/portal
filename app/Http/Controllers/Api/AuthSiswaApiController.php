@@ -89,6 +89,82 @@ class AuthSiswaApiController extends Controller
         ]);
     }
 
+    /**
+     * Ganti kata sandi akun siswa.
+     *
+     * Satu-satunya tempat portal menulis ke kolom milik akun Data Center, dan
+     * batasnya sengaja sempit: hanya kolom password, hanya milik siswa yang
+     * tokennya sedang dipakai, dan hanya setelah sandi lamanya dibuktikan.
+     * Portal tetap tidak membuat akun, tidak menghapusnya, dan tidak menyentuh
+     * akun siapa pun selain pemegang token.
+     *
+     * Sandinya sama dengan sandi masuk Data Center dan aplikasi sekolah
+     * lainnya, jadi yang berubah di sini berubah di semuanya. Itu disengaja:
+     * siswa hanya punya satu kata sandi, dan menyimpan dua sandi berbeda untuk
+     * akun yang sama adalah cara tercepat membuatnya terkunci.
+     */
+    public function gantiSandi(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'sandi_lama' => ['required', 'string', 'max:100'],
+            'sandi_baru' => ['required', 'string', 'min:6', 'max:100', 'confirmed'],
+        ], [], [
+            'sandi_lama' => 'Kata sandi saat ini',
+            'sandi_baru' => 'Kata sandi baru',
+        ]);
+
+        $siswa = $request->user('siswa');
+
+        // Hash selain bcrypt dianggap tidak cocok, sama seperti saat masuk.
+        $cocok = filled($siswa->password)
+            && rescue(fn () => Hash::check($data['sandi_lama'], $siswa->password), false, report: false);
+
+        if (! $cocok) {
+            throw ValidationException::withMessages([
+                'sandi_lama' => 'Kata sandi saat ini salah.',
+            ]);
+        }
+
+        if (rescue(fn () => Hash::check($data['sandi_baru'], $siswa->password), false, report: false)) {
+            throw ValidationException::withMessages([
+                'sandi_baru' => 'Kata sandi baru harus berbeda dari yang sekarang.',
+            ]);
+        }
+
+        // Kegagalan menulis tidak boleh diam. Penanda login memang sengaja
+        // dilewati bila user database Data Center hanya punya hak baca, tetapi
+        // siswa yang mengira sandinya sudah berganti padahal tidak akan
+        // terkunci dari seluruh aplikasi sekolah pada percobaan masuk
+        // berikutnya — dan tidak ada yang bisa menduga sebabnya.
+        $tersimpan = rescue(
+            fn () => $siswa->forceFill(['password' => Hash::make($data['sandi_baru'])])->save(),
+            false,
+        );
+
+        if (! $tersimpan) {
+            return response()->json([
+                'pesan' => 'Kata sandi tidak bisa disimpan ke Data Center sekolah. '
+                    .'Sandi lama Anda masih berlaku. Beri tahu operator sekolah.',
+            ], 503);
+        }
+
+        // Perangkat lain ikut dikeluarkan. Sandi yang diganti karena orang lain
+        // mengetahuinya tidak ada gunanya bila ponsel orang itu masih memegang
+        // token yang sah. Token perangkat ini sengaja dibiarkan: siswa yang
+        // baru saja membuktikan sandi lamanya tidak perlu disuruh masuk lagi
+        // di tempat ia berdiri.
+        $ini = $request->attributes->get('siswa_api_token');
+
+        rescue(fn () => SiswaApiToken::where('siswa_id', $siswa->id)
+            ->when($ini, fn ($q) => $q->whereKeyNot($ini->getKey()))
+            ->delete());
+
+        return response()->json([
+            'pesan' => 'Kata sandi berhasil diubah. Pakai yang baru untuk masuk ke '
+                .'portal, aplikasi ujian, dan Data Center.',
+        ]);
+    }
+
     public function logout(Request $request): JsonResponse
     {
         // Hanya token perangkat ini yang dihapus. Siswa yang membuka portal di
